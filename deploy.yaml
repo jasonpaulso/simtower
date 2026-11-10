@@ -1,0 +1,29 @@
+apiVersion: deploy.local/v1
+kind: Application
+
+metadata:
+  name: simtower
+  description: Browser port of SimTower
+
+components:
+  web:
+    build:
+      context: .
+      ignore:
+        - research
+        - tests
+        - .github
+    role: web
+    interfaces:
+      http:
+        port: 5173
+        protocol: http
+    health:
+      interface: http
+      path: /
+
+routes:
+  public:
+    to: web.http
+    path: /
+    discoverable: true
