@@ -39,19 +39,34 @@ Requires Node 22+. `npm run extract` regenerates assets and needs Python 3, Pill
 
 ## Deployment
 
-Three targets, all from the same source:
+Four targets, all from the same source:
 
 - **GitHub Pages** — `.github/workflows/pages.yml` tests and publishes `main` with
   `BASE_PATH=/<repo>/`.
 - **deploy.local** — `deploy.yaml` plus `Dockerfile`. The server requires both; it does not
   auto-detect Node projects. The container runs `tools/server.mjs` on port 5173 with
-  `HOST=0.0.0.0`. On the Mac Studio the app is at `https://simtower.local:8443` (Tailscale holds
-  port 443, so the CLI's printed URL without a port is wrong there).
-- **Tailscale Serve** — mounted at `/simtower` on the machine's tailnet hostname. The image
+  `HOST=0.0.0.0`. The app is served at `https://simtower.local`, on whatever HTTPS port the
+  deploy.local edge is using; the CLI prints the URL without a port even when the edge is not
+  on 443.
+- **Tailscale Serve** — mounted at `/simtower` on the host's tailnet hostname. The image
   carries a second build with `BASE_PATH=/simtower/` in `dist/`, which `server.mjs` serves under
   that prefix when `BASE_PATH` is set. deploy.local publishes the container on a random loopback
   port per deploy, so `tools/tailscale-serve.sh` must run after every deploy to re-point the
   mount; `npm run deploy:local` does both.
+- **Cloudflare Tunnel** — a public hostname on a Cloudflare Tunnel (managed with the `cf` CLI;
+  config lives in Cloudflare, not this repo). The ingress rule targets the deploy.local edge
+  over the host's Tailscale address, with the host header set to `simtower.local` and
+  `noTLSVerify` on, because the edge's certificate comes from deploy.local's private CA. It
+  routes by name, so a plain `deploy -a simtower` keeps it current. `cf tunnels config update`
+  replaces the whole config: fetch the current one, edit it, and send it all back.
+  The hostname sits behind Cloudflare Access: a self-hosted application with one allow policy
+  listing permitted email addresses, 24-hour sessions, and login by One-time PIN or GitHub.
+  Unauthenticated requests get a 302 to the Access login page, so `curl` checks against the
+  public URL do not return the game. To change who can log in, edit the policy with
+  `cf zero-trust access applications` or in the Zero Trust dashboard.
+
+Hostnames, addresses, tunnel and account identifiers for a particular setup belong in
+`CLAUDE.local.md`, which is gitignored.
 
 If a deploy shows `failed`, the reason is only in
 `deploy.local/.deploy-data/build-logs/<id>.log` on the server.

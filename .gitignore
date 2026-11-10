@@ -29,6 +29,7 @@ __pycache__/
 
 # Machine-local settings and secrets.
 .DS_Store
+CLAUDE.local.md
 .env
 .env.*
 !.env.example
